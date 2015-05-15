@@ -5,21 +5,153 @@ output:
     keep_md: true
 ---
 
+```{r global settings, echo = FALSE}
+
+knitr::opts_chunk$set(warnings = FALSE, message = FALSE)
+    
+```
 
 ## Loading and preprocessing the data
 
+We shall require **dplyr** and **ggplot2** libraries:
+```{r load libraries}
 
+library(dplyr)
+library(ggplot2)
+
+```
+
+The following codes will load the data and convert the date column to Date type. Subsequently, a dplyr table data frame is created and we shall work from there:
+
+```{r loading_data}
+
+# load data
+activity <- read.csv("activity.csv")
+
+# convert the date column to date type
+activity$date <- as.Date(activity$date)
+
+# create a dplyr data frame to work with
+actvt <- tbl_df(activity)
+
+```
 
 ## What is mean total number of steps taken per day?
 
+This code will aggregate the number of steps by day:
+
+```{r total steps per day}
+
+daily_steps <- actvt %>% group_by(date) %>% summarise(total = sum(steps))
+
+```
+
+This chart represents the histogram (not a bar plot!) of the total number of steps taken each day:
+
+```{r histogram of daily total steps}
+
+g <- ggplot(daily_steps, aes(total))
+g + geom_histogram() + labs(x = "Total Steps per Day", y = "Frequency")
+
+```
+
+The mean of the steps per day is:
+
+```{r the mean, echo = FALSE}
+mean(daily_steps$total, na.rm = TRUE)
+```
+
+And the median for number of steps is:
+
+```{r the median, echo = FALSE}
+median(daily_steps$total, na.rm = TRUE)
+```
 
 
 ## What is the average daily activity pattern?
 
+This code will produce the aggregated average steps per interval across all days:
 
+```{r total average steps per interval}
+
+interval_steps <- actvt %>% group_by(interval) %>% summarise(avg = mean(steps, na.rm = TRUE))
+
+interval_steps
+
+```
+
+This will make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis):
+
+```{r time series of interval average steps}
+
+g <- ggplot(interval_steps, aes(interval, avg))
+g + geom_line() + labs(x = "Interval", y = "Average Steps Across all Days")
+
+```
+
+From the graph we could see that the highest average is around the 750-900 minutes interval (to be exact at 835th interval)
 
 ## Imputing missing values
 
+The following calculates the number of missing values in the dataset:
 
+```{r missing values}
+
+sum(is.na(activity$steps))
+
+```
+
+For the purpose of filling up the NA's, we shall use the average of that minutes interval. This shall create a new dataset with NAs being filled:
+
+
+```{r fill NAs with interval average}
+
+new_actvt <- actvt %>% group_by(interval) %>% mutate(steps = ifelse(is.na(steps), mean(steps, na.rm = TRUE), steps))
+
+```
+
+This chart represents a new histogram of the total number of steps taken each day using the new data:
+
+```{r histogram of daily total steps of a new dataset}
+
+new_daily_steps <- new_actvt %>% group_by(date) %>% summarise(total = sum(steps))
+g <- ggplot(new_daily_steps, aes(total))
+g + geom_histogram() + labs(x = "Total Steps per Day", y = "Frequency")
+
+```
+
+The mean of the steps per day is:
+
+```{r the new mean, echo = FALSE}
+mean(new_daily_steps$total, na.rm = TRUE)
+```
+
+And the median for number of steps is:
+
+```{r the new median, echo = FALSE}
+median(new_daily_steps$total, na.rm = TRUE)
+```
+
+From the new mean and median, we could see that the impact is minimal and only on the median value.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Adding a new column to indicate whether weekend or weekday:
+
+```{r add weekdaytype column}
+
+new_actvt <- new_actvt %>% mutate(weekdaytype = ifelse(weekdays(date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday"))
+
+````
+
+Plotting a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis):
+
+```{r weekday vs weekend plot}
+
+new_interval_steps <- new_actvt %>% group_by(interval, weekdaytype) %>% summarise(avg = mean(steps, na.rm = TRUE))
+g <- ggplot(new_interval_steps, aes(interval, avg))
+g + geom_line() + labs(x = "Interval", y = "Average Steps Across all Days") + facet_grid(weekdaytype ~.)
+
+```
+
+From the graph it seems that activities do not differ much between weekdays and weekends.
